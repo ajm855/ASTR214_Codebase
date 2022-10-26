@@ -1,9 +1,11 @@
 # Phase Coverage Graphing Tool
 # Alexander Magnus
 import os
+import matplotlib.pyplot as plt
+from suntimes import SunTimes
+from datetime import date, datetime, timedelta
 from astropy.io import fits
 from astropy.time import Time
-import matplotlib.pyplot as plt
 
 
 def phase(jd, p):
@@ -59,6 +61,42 @@ def graph_phase_coverage(plt_ax, p, infolder):
 
     plt_ax.scatter(phase_list, date_list, s=1)
 
+def utc_to_jd(utc_date):
+    t = Time(utc_date, scale='utc')
+    return t.jd
+
+def find_phase_night(target_phase_at_sunset, p, threshold=0.01):
+    """
+    :param target_phase_at_sunset: Float. Desired phase at sunset for given object with period p.
+    :param p: Float. Period to phase by.
+    :param threshold: Float. Max acceptable absolute difference between desired phase and iterated phase during search.
+    :return: datetime date. First date found at which the day's phase at sunset is within threshold of target_phase_at_sunset. 
+    Returns -1 if nothing is found within one year.
+    """
+    # Setup Saskatoon sun
+    latitude = 52.146973
+    longitude = -106.647034
+    altitude = 482 # meters
+    sun = SunTimes(latitude=latitude, longitude=longitude, altitude=altitude)
+
+    # Start iterating from today, end on the same date next year.
+    date_iter = datetime.utcnow().date()
+    next_year = date(date_iter.year+1, date_iter.month, date_iter.day)
+    
+    while date_iter < next_year :
+        # Calculate time of sunset in UTC at Saskatoon
+        sunset = sun.setutc(date_iter)
+        #Calculate phase of object at sunset
+        iter_phase_at_sunset = phase(utc_to_jd(sunset), p)
+
+        # If phase is within threshold of desired phase, return date.
+        if abs(iter_phase_at_sunset - target_phase_at_sunset) < threshold:
+            print("The object's phase will be", iter_phase_at_sunset, "at sunset on", date_iter)
+            return date_iter
+        date_iter += timedelta(days=1)
+    print("Couldn't find required phase within a year.")
+    return -1
+
 
 # Initialize plot.
 fig1, ax1 = plt.subplots()
@@ -77,4 +115,10 @@ add_prediction(ax1, period, 2459879.58333, 2459880.02083)
 add_prediction(ax1, period, 2459880.58333, 2459881.02083, 'c')
 add_prediction(ax1, period, 2459881.58333, 2459882.02083, 'g')
 add_prediction(ax1, period, 2459882.58333, 2459883.02083, 'y')
-plt.show()
+#plt.show()
+
+# Saskatoon
+find_phase_night(0.5, 3.96004)
+
+print()
+
