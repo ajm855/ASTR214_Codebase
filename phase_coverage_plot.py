@@ -2,6 +2,7 @@
 # Alexander Magnus
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 from suntimes import SunTimes
 from datetime import date, datetime, timedelta
 from astropy.io import fits
@@ -59,13 +60,13 @@ def graph_phase_coverage(plt_ax, p, infolder):
         date_list.append(date_label)
         fits_file.close()
 
-    plt_ax.scatter(phase_list, date_list, s=1)
+    plt_ax.scatter(phase_list, date_list, s=1, zorder=4)
 
 def utc_to_jd(utc_date):
     t = Time(utc_date, scale='utc')
     return t.jd
 
-def find_phase_night(target_phase_at_sunset, p, threshold=0.01):
+def find_phase_at_sunset(target_phase_at_sunset, p, threshold=0.01):
     """
     :param target_phase_at_sunset: Float. Desired phase at sunset for given object with period p.
     :param p: Float. Period to phase by.
@@ -91,8 +92,15 @@ def find_phase_night(target_phase_at_sunset, p, threshold=0.01):
 
         # If phase is within threshold of desired phase, return date.
         if abs(iter_phase_at_sunset - target_phase_at_sunset) < threshold:
-            print("The object's phase will be", iter_phase_at_sunset, "at sunset on", date_iter)
-            return date_iter
+            tomorrow = date_iter + timedelta(days=1)
+            sunrise = sun.riseutc(tomorrow)
+            iter_phase_at_sunrise = phase(utc_to_jd(sunrise), p)
+
+
+            print(date_iter, tomorrow)
+            print("The object's phase will be", iter_phase_at_sunset, "on",sunset,"UTC (which is sunset)."  )
+            print("At sunrise on", sunrise, "(the following day) the phase will be", iter_phase_at_sunrise,".")
+            return [utc_to_jd(sunset), utc_to_jd(sunrise)]
         date_iter += timedelta(days=1)
     print("Couldn't find required phase within a year.")
     return -1
@@ -100,10 +108,14 @@ def find_phase_night(target_phase_at_sunset, p, threshold=0.01):
 
 # Initialize plot.
 fig1, ax1 = plt.subplots()
+ax1.minorticks_on()
 plt.title("BetaAur Period Coverage, P=3.96004 days")
 plt.xlabel("Phase")
-plt.ylabel("Day")
 plt.xlim([0, 1])
+plt.xticks(np.linspace(0, 1, 11))
+plt.ylabel("Date, MMDD (UTC)")
+
+plt.grid(visible=True)
 
 # Build coverage plot from observation files.
 period = 3.96004
@@ -111,14 +123,14 @@ obs_folder = 'BetaAurSp'
 graph_phase_coverage(ax1, period, obs_folder)
 
 # Add predictions to coverage plot.
-add_prediction(ax1, period, 2459879.58333, 2459880.02083)
-add_prediction(ax1, period, 2459880.58333, 2459881.02083, 'c')
-add_prediction(ax1, period, 2459881.58333, 2459882.02083, 'g')
-add_prediction(ax1, period, 2459882.58333, 2459883.02083, 'y')
-#plt.show()
+#add_prediction(ax1, period, 2459879.58333, 2459880.02083)
+#add_prediction(ax1, period, 2459880.58333, 2459881.02083, 'c')
+#add_prediction(ax1, period, 2459881.58333, 2459882.02083, 'g')
+#add_prediction(ax1, period, 2459882.58333, 2459883.02083, 'y')
 
-# Saskatoon
-find_phase_night(0.5, 3.96004)
+results = find_phase_at_sunset(0.5, 3.96004)
+add_prediction(ax1, period, results[0], results[1])
+plt.show()
 
 print()
 
