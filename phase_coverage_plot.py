@@ -7,6 +7,9 @@ from suntimes import SunTimes
 from datetime import date, datetime, timedelta
 from astropy.io import fits
 from astropy.time import Time
+import astropy.units as u
+from astropy.time import Time
+from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 
 
 def phase(jd, p):
@@ -66,7 +69,7 @@ def utc_to_jd(utc_date):
     t = Time(utc_date, scale='utc')
     return t.jd
 
-def find_phase_at_sunset(target_phase_at_sunset, p, threshold=0.01):
+def find_phase_at_sunset(target_phase_at_sunset, p, sky_obj, threshold=0.01):
     """
     :param target_phase_at_sunset: Float. Desired phase at sunset for given object with period p.
     :param p: Float. Period to phase by.
@@ -97,15 +100,31 @@ def find_phase_at_sunset(target_phase_at_sunset, p, threshold=0.01):
         wrap_up = iter_phase_at_sunset + threshold - 1
         wrap_down = iter_phase_at_sunset - threshold + 1
 
-        if (abs(iter_phase_at_sunset - target_phase_at_sunset) < threshold) or (wrap_up > 0 and wrap_up > target_phase_at_sunset) or (wrap_down < 1 and wrap_down < target_phase_at_sunset):
-            tomorrow = date_iter + timedelta(days=1)
-            sunrise = sun.riseutc(tomorrow)
-            iter_phase_at_sunrise = phase(utc_to_jd(sunrise), p)
+        if (
+            (abs(iter_phase_at_sunset - target_phase_at_sunset) < threshold) or 
+            (wrap_up > 0 and wrap_up > target_phase_at_sunset) or 
+            (wrap_down < 1 and wrap_down < target_phase_at_sunset)
+        ):
+
+            # Calculate altitude of given object at sunset
+            obj = sky_obj
+            saskatoon = EarthLocation(lat= latitude*u.deg, lon=longitude*u.deg, height=altitude*u.m )
+            time = sunset
+            obj_altaz = obj.transform_to(AltAz(obstime=time, location=saskatoon))
+            obj_alt = float(f"{obj_altaz.alt}"[:-4])
         
-            print(date_iter, tomorrow)
-            print("The object's phase will be", iter_phase_at_sunset, "on",sunset,"UTC (which is sunset)."  )
-            print("At sunrise on", sunrise, "(the following day) the phase will be", iter_phase_at_sunrise,".")
-            return [utc_to_jd(sunset), utc_to_jd(sunrise)]
+            if obj_alt > 20.0:
+                tomorrow = date_iter + timedelta(days=1)
+                sunrise = sun.riseutc(tomorrow)
+                iter_phase_at_sunrise = phase(utc_to_jd(sunrise), p)
+            
+                print(date_iter, tomorrow)
+                print("The object's phase will be", iter_phase_at_sunset, "on",sunset,"UTC (which is sunset)."  )
+                print("At sunrise on", sunrise, "(the following day) the phase will be", iter_phase_at_sunrise,".")
+                print("At sunset, the object will be at an altitude of", obj_alt)
+
+                return [utc_to_jd(sunset), utc_to_jd(sunrise)]
+
         date_iter += timedelta(days=1)
     print("Couldn't find required phase within a year.")
     return -1
@@ -133,7 +152,16 @@ obs_folder = 'BetaAurSp'
 #add_prediction(ax1, period, 2459881.58333, 2459882.02083, 'g')
 #add_prediction(ax1, period, 2459882.58333, 2459883.02083, 'y')
 
-results = find_phase_at_sunset(0.99, 3.96004)
+results = find_phase_at_sunset(0.1, 3.96004, SkyCoord.from_name("beta aurigae"))
 add_prediction(ax1, period, results[0], results[1])
-
 plt.show()
+
+"""
+ba = SkyCoord.from_name('beta aurigae')
+saskatoon = EarthLocation(lat= 52.146973*u.deg, lon=-106.647034*u.deg, height=482*u.m )
+time = Time.now()
+
+ba_altaz = ba.transform_to(AltAz(obstime=time, location=saskatoon))
+print(f"BetaAur's Altitude = {ba_altaz.alt:.4}")
+print(float(f"{ba_altaz.alt}"[:-4])+1)
+"""
