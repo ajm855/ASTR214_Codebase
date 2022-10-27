@@ -90,13 +90,18 @@ def find_phase_at_sunset(target_phase_at_sunset, p, threshold=0.01):
         #Calculate phase of object at sunset
         iter_phase_at_sunset = phase(utc_to_jd(sunset), p)
 
-        # If phase is within threshold of desired phase, return date.
-        if abs(iter_phase_at_sunset - target_phase_at_sunset) < threshold:
+        
+
+        # If phase is within threshold of desired phase, return date. 
+        # Handling for cases near 0 and 1
+        wrap_up = iter_phase_at_sunset + threshold - 1
+        wrap_down = iter_phase_at_sunset - threshold + 1
+
+        if (abs(iter_phase_at_sunset - target_phase_at_sunset) < threshold) or (wrap_up > 0 and wrap_up > target_phase_at_sunset) or (wrap_down < 1 and wrap_down < target_phase_at_sunset):
             tomorrow = date_iter + timedelta(days=1)
             sunrise = sun.riseutc(tomorrow)
             iter_phase_at_sunrise = phase(utc_to_jd(sunrise), p)
-
-
+        
             print(date_iter, tomorrow)
             print("The object's phase will be", iter_phase_at_sunset, "on",sunset,"UTC (which is sunset)."  )
             print("At sunrise on", sunrise, "(the following day) the phase will be", iter_phase_at_sunrise,".")
@@ -120,7 +125,7 @@ plt.grid(visible=True)
 # Build coverage plot from observation files.
 period = 3.96004
 obs_folder = 'BetaAurSp'
-graph_phase_coverage(ax1, period, obs_folder)
+#graph_phase_coverage(ax1, period, obs_folder)
 
 # Add predictions to coverage plot.
 #add_prediction(ax1, period, 2459879.58333, 2459880.02083)
@@ -128,9 +133,7 @@ graph_phase_coverage(ax1, period, obs_folder)
 #add_prediction(ax1, period, 2459881.58333, 2459882.02083, 'g')
 #add_prediction(ax1, period, 2459882.58333, 2459883.02083, 'y')
 
-results = find_phase_at_sunset(0.5, 3.96004)
+results = find_phase_at_sunset(0.99, 3.96004)
 add_prediction(ax1, period, results[0], results[1])
+
 plt.show()
-
-print()
-
