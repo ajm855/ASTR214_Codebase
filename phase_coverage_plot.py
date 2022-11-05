@@ -134,6 +134,39 @@ def find_phase_at_sunset(target_phase_at_sunset, p, sky_obj, threshold=0.01, ver
     print("Couldn't find required phase within threshold and elevation constraints within a year.")
     return [-1,-1]
 
+def phase_coverage_tonight(p, sky_obj, threshold=0.01, verbose=True):
+    """
+    :param target_phase_at_sunset: Float. Desired phase at sunset for given object with period p.
+    :param p: Float. Period to phase by.
+    :param threshold: Float. Max acceptable absolute difference between desired phase and iterated phase during search.
+    :return: datetime date. First date found at which the day's phase at sunset is within threshold of target_phase_at_sunset. 
+    Returns -1 if nothing is found within one year.
+    """
+    # Set up Saskatoon sun for sunset time calculation.
+    latitude = 52.146973
+    longitude = -106.647034
+    altitude = 482 # meters
+    sun = SunTimes(latitude=latitude, longitude=longitude, altitude=altitude)
+
+    # Set up observatory location and object information for alitude/elevation calculation.
+    obj = sky_obj
+    saskatoon = EarthLocation(lat= latitude*u.deg, lon=longitude*u.deg, height=altitude*u.m )
+    
+    today = datetime.utcnow().date()
+    tomorrow = today + timedelta(days=1)
+
+    sunset = sun.setutc(today)
+    sunrise = sun.riseutc(tomorrow)
+    phase_at_sunset = phase(utc_to_jd(sunset), p)
+    phase_at_sunrise = phase(utc_to_jd(sunrise), p)
+
+    obj_altaz = obj.transform_to(AltAz(obstime=sunset, location=saskatoon))
+    obj_alt = float(f"{obj_altaz.alt}"[:-4])
+
+    print("At sunset, the object's phase will be", phase_at_sunset, "occuring on", sunset,"UTC. It's altitude at this time is", obj_alt, "deg."  )
+    print("At sunrise the following morning, the object's phase will be", phase_at_sunrise, "occuring on", sunrise, "UTC.")
+    return [utc_to_jd(sunset), utc_to_jd(sunrise)]
+
 
 # Initialize plot.
 fig1, ax1 = plt.subplots()
@@ -147,9 +180,12 @@ plt.ylabel("Date, MMDD (UTC)")
 plt.grid(visible=True)
 
 # Build coverage plot from observation files.
-#period = 3.96004
-#obs_folder = 'BetaAurSp'
-#graph_phase_coverage(ax1, period, obs_folder)
+period = 3.96004
+obs_folder = 'BetaAurSp'
+graph_phase_coverage(ax1, period, obs_folder)
+
+sunrise, sunset = phase_coverage_tonight(period, SkyCoord.from_name("beta aurigae"))
+add_prediction(ax1, period, sunrise, sunset)
 
 # Add predictions to coverage plot.
 #add_prediction(ax1, period, 2459879.58333, 2459880.02083)
@@ -160,7 +196,7 @@ plt.grid(visible=True)
 # Search for desired phase at sunset, add predictions to plot.
 #results = find_phase_at_sunset(0.1, 3.96004, SkyCoord.from_name("beta aurigae"))
 #add_prediction(ax1, period, results[0], results[1])
-#plt.show()
+plt.show()
 
 # Testing for altitude calculation.
 """
